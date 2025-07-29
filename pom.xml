@@ -50,16 +50,10 @@
         </dependency>
 
         <dependency>
-            <groupId>ps.purelogic</groupId>
-            <artifactId>ZKTeco4J</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <groupId>com.github.virtualheart</groupId>
+            <artifactId>ZKteco-biomatric-lib</artifactId>
+            <version>-SNAPSHOT</version>
         </dependency>
-
-<!--        <dependency>-->
-<!--            <groupId>com.github.mkhoudary</groupId>-->
-<!--            <artifactId>ZKTeco4J</artifactId>-->
-<!--            <version>main-SNAPSHOT</version>-->
-<!--        </dependency>-->
 
         <dependency>
             <groupId>org.springframework.boot</groupId>

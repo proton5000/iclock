@@ -2,11 +2,10 @@ package ua.varus.iclock.config;
 
 import com.zkteco.Exception.DeviceNotConnectException;
 import com.zkteco.commands.ZKCommandReply;
-import com.zkteco.terminal.ZKTerminal;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import ua.varus.iclock.utils.ZKTerminalNEw;
+import ua.varus.iclock.utils.ZKTerminalV;
 
 import java.io.IOException;
 
@@ -29,9 +28,9 @@ public class ZktecoAutoConfiguration {
      * Bean клиента Zk. При остановке контекста вызовется zk.disconnect().
      */
     @Bean(destroyMethod = "disconnect")
-    public ZKTerminalNEw zkClient() throws IOException, DeviceNotConnectException {
+    public ZKTerminalV zkClient() throws IOException, DeviceNotConnectException {
         // Создаём клиент, указываем host и порт
-        ZKTerminalNEw zk = new ZKTerminalNEw(host, port);
+        ZKTerminalV zk = new ZKTerminalV(host, port);
         ZKCommandReply connected = zk.connect();
         System.out.println("connects code: " + connected.getCode());
         return zk;
