@@ -18,15 +18,6 @@ public class ZktecoAutoConfiguration {
     @Value("${zkteco.port}")
     private int port;
 
-    @Value("${zkteco.timeout.connect:5000}")
-    private int connectTimeout;
-
-    @Value("${zkteco.timeout.read:3000}")
-    private int readTimeout;
-
-    /**
-     * Bean клиента Zk. При остановке контекста вызовется zk.disconnect().
-     */
     @Bean(destroyMethod = "disconnect")
     public ZKTerminalV zkClient() throws IOException, DeviceNotConnectException {
         // Создаём клиент, указываем host и порт
