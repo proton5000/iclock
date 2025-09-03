@@ -38,9 +38,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 public class ZKTerminalV {
 
+    private static final Logger log = Logger.getLogger(ZKTerminalV.class.getName());
+    
     private DatagramSocket socket;
     private InetAddress address;
     private final String ip;
@@ -1961,16 +1965,88 @@ public class ZKTerminalV {
     }
 
     public ZKCommandReply setUserTmpEx(int machineId, int userId, int fingerIndex, int fpFlag, byte[] fpTemplate) throws IOException {
-        // Все параметры 4-байтные + шаблон
-        ByteBuffer buf = ByteBuffer.allocate(16 + fpTemplate.length)
-                .order(ByteOrder.LITTLE_ENDIAN);
-        buf.putInt(machineId);     // dwMachineNumber
-        buf.putInt(userId);        // dwEnrollNumber
-        buf.putInt(fingerIndex);   // dwFingerIndex (0-9)
-        buf.putInt(fpFlag);        // Flag: 1 - обычный отпечаток
-        buf.put(fpTemplate);       // TmpData
-
-        return sendSimpleCommand(CommandCodeEnum.CMD_TMP_WRITE, buf.array());
+        // Согласно протоколу ZKTeco для ZKFinger 10.0
+        // Используем последовательность команд для загрузки в буфер и сохранения
+        
+        try {
+            // 1. Отключаем устройство
+            ZKCommandReply disableReply = disableDevice();
+            if (disableReply.getCode() != CommandReplyCodeEnum.CMD_ACK_OK) {
+                log.warning("Failed to disable device: " + disableReply.getCode());
+                return disableReply;
+            }
+            
+            // 2. Подготавливаем буфер для данных
+            ByteBuffer prepData = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
+            prepData.putShort((short) fpTemplate.length);  // Размер данных (2 байта, little-endian)
+            prepData.putShort((short) 0);                  // Фиксированное значение 0000 (2 байта)
+            
+            ZKCommandReply prepReply = sendSimpleCommand(CommandCodeEnum.CMD_PREPARE_DATA, prepData.array());
+            if (prepReply.getCode() != CommandReplyCodeEnum.CMD_ACK_OK) {
+                log.warning("Failed to prepare data: " + prepReply.getCode());
+                return prepReply;
+            }
+            
+            // 3. Отправляем данные шаблона
+            ZKCommandReply dataReply = sendSimpleCommand(CommandCodeEnum.CMD_DATA, fpTemplate);
+            if (dataReply.getCode() != CommandReplyCodeEnum.CMD_ACK_OK) {
+                log.warning("Failed to send data: " + dataReply.getCode());
+                return dataReply;
+            }
+            
+            // 4. Запрашиваем контрольную сумму
+            ZKCommandReply checksumReply = sendSimpleCommand(CommandCodeEnum.CMD_CHECKSUM_BUFFER, null);
+            if (checksumReply.getCode() != CommandReplyCodeEnum.CMD_ACK_OK) {
+                log.warning("Failed to get checksum: " + checksumReply.getCode());
+                return checksumReply;
+            }
+            
+            // 5. Записываем шаблон в память устройства
+            ByteBuffer tmpWreqData = ByteBuffer.allocate(6).order(ByteOrder.LITTLE_ENDIAN);
+            tmpWreqData.putShort((short) userId);      // user_sn (2 байта, little-endian)
+            tmpWreqData.put((byte) fingerIndex);       // fp_index (1 байт)
+            tmpWreqData.put((byte) fpFlag);            // fp_flag (1 байт)
+            tmpWreqData.putShort((short) fpTemplate.length); // fp_size (2 байта, little-endian)
+            
+            ZKCommandReply writeReply = sendSimpleCommand(CommandCodeEnum.CMD_TMP_WRITE, tmpWreqData.array());
+            if (writeReply.getCode() != CommandReplyCodeEnum.CMD_ACK_OK) {
+                log.warning("Failed to write template: " + writeReply.getCode());
+                return writeReply;
+            }
+            
+            // 6. Освобождаем буфер
+            ZKCommandReply freeReply = sendSimpleCommand(CommandCodeEnum.CMD_FREE_DATA, null);
+            if (freeReply.getCode() != CommandReplyCodeEnum.CMD_ACK_OK) {
+                log.warning("Failed to free data: " + freeReply.getCode());
+                return freeReply;
+            }
+            
+            // 7. Обновляем данные устройства
+            ZKCommandReply refreshReply = sendSimpleCommand(CommandCodeEnum.CMD_REFRESHDATA, null);
+            if (refreshReply.getCode() != CommandReplyCodeEnum.CMD_ACK_OK) {
+                log.warning("Failed to refresh data: " + refreshReply.getCode());
+                return refreshReply;
+            }
+            
+            // 8. Включаем устройство обратно
+            ZKCommandReply enableReply = enableDevice();
+            if (enableReply.getCode() != CommandReplyCodeEnum.CMD_ACK_OK) {
+                log.warning("Failed to enable device: " + enableReply.getCode());
+                return enableReply;
+            }
+            
+            return writeReply;
+            
+        } catch (Exception e) {
+            log.severe("Error in setUserTmpEx: " + e.getMessage());
+            // Пытаемся включить устройство в случае ошибки
+            try {
+                enableDevice();
+            } catch (Exception ex) {
+                log.severe("Failed to enable device after error: " + ex.getMessage());
+            }
+            throw new IOException("Error uploading fingerprint: " + e.getMessage());
+        }
     }
 
     public ZKCommandReply setSms(int tagp, int IDp, int validMinutesp, long startTimep, String contentp) throws IOException {
