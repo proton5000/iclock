@@ -33,13 +33,13 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
-import java.util.logging.Level;
 
 public class ZKTerminalV {
 
@@ -2948,5 +2948,27 @@ public class ZKTerminalV {
         } catch (Exception e) {
             throw new IOException("Error uploading fingerprint: " + e.getMessage());
         }
+    }
+
+    /**
+     * Новый метод для загрузки отпечатка из Base64 строки
+     * @param userId ID пользователя
+     * @param base64Template Base64 строка отпечатка
+     * @param fpIndex индекс пальца
+     * @param fpFlag флаг отпечатка
+     * @throws IOException
+     * @throws ParseException
+     */
+    public void uploadFpFromBase64(String userId, String base64Template, byte fpIndex, byte fpFlag) throws IOException, ParseException {
+        log.info("uploadFpFromBase64: userId=" + userId + ", fpIndex=" + fpIndex + ", fpFlag=" + fpFlag + ", base64Length=" + base64Template.length());
+        
+        // Конвертируем Base64 строку в байты
+        byte[] template = Base64.getDecoder().decode(base64Template);
+        log.info("Decoded template size: " + template.length + " bytes");
+        
+        // Используем существующий метод uploadFp
+        uploadFp(userId, template, fpIndex, fpFlag);
+        
+        log.info("uploadFpFromBase64 completed successfully");
     }
 }
